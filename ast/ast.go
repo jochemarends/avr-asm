@@ -17,6 +17,10 @@ type Instruction struct {
     Operands []Operand
 }
 
+type Program struct {
+    Instructions []Instruction
+}
+
 type Operand interface {
     Node
     operandNode()

@@ -21,6 +21,15 @@ func New(l *lexer.Lexer) *Parser {
     return p
 }
 
+func (p *Parser) ParseProgram() ast.Program {
+    program := &ast.Program{}
+    for p.currToken.Type != token.EOF {
+        if inst := p.parseInstruction(); inst != nil {
+            program.Instructions = append(program.Instructions, *inst)
+        }
+    }
+}
+
 func (p *Parser) readToken() {
     p.currToken = p.l.ReadToken()
     p.nextToken = p.l.ReadToken()
@@ -50,8 +59,8 @@ func (p *Parser) nextTokenError(t token.Type) {
     p.errors = append(p.errors, msg)
 }
 
-func (p *Parser) parseInstruction() ast.Instruction {
-    inst := ast.Instruction{Mnemonic: p.currToken}
+func (p *Parser) parseInstruction() *ast.Instruction {
+    inst := &ast.Instruction{Mnemonic: p.currToken}
     p.readToken()
     inst.Operands = p.parseOperands()
     return inst
