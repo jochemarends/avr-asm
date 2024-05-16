@@ -2,6 +2,7 @@ package main
 
 import (
     "avr-asm/lexer"
+    _ "avr-asm/parser"
     "bufio"
     "fmt"
     "os"
