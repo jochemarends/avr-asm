@@ -28,6 +28,7 @@ func (p *Parser) ParseProgram() ast.Program {
             program.Instructions = append(program.Instructions, *inst)
         }
     }
+    return program
 }
 
 func (p *Parser) readToken() {
