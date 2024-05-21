@@ -21,7 +21,7 @@ func New(l *lexer.Lexer) *Parser {
     return p
 }
 
-func (p *Parser) ParseProgram() ast.Program {
+func (p *Parser) ParseProgram() *ast.Program {
     program := &ast.Program{}
     for p.currToken.Type != token.EOF {
         if inst := p.parseInstruction(); inst != nil {
