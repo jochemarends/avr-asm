@@ -1,49 +1,76 @@
 package encoding
 
 import (
+    . "avr-asm/arch"
     "avr-asm/ast"
-    "avr-asm/parser"
+    _ "avr-asm/parser"
+    "fmt"
 )
 
-func Encode(inst ast.Instruction) uint16 {
-    opcode := Opcodes[ast.Mnmonic]
-    operands := Operands[opcode]
-}
+type (
+    // Maps a numeric value to a new format, (e.g.) a value that can only reside in four states
+    // can be represented using two bits.
+    //
+    // There's probably a better name for this, but I couldn't come up with one.
+    Mapping func(Word) (Word, error)
 
-type Operand struct {
-    Type       OperandType
-    Constraint OperandConstraint
-    
-}
-
-func (Operand) Encode(node ast.Operand) uint16 {
-    for _, c := range constraints
-}
-
-const (
-    ByteRegister OperandType = iota
-    WordRegister
+    Opcode string
 )
 
-type Constraint func(ast.Operand) (uint16, error)
-type Encoder func(uint16) uint16
-
-
-func IsRegister(ast.Node) bool {
-    return ast.(type) == ast.Register
+// Checks if a value is between two values (inclusive).
+func Between(a, b Word) Mapping {
+    minVal := min(a, b)
+    maxVal := max(a, b)
+    return func(w Word) (Word, error) {
+        if w >= minVal && w <= maxVal {
+            return w - minVal, nil
+        }
+        err := fmt.Errorf("expected a value from %v through %v, received %v instead", minVal, maxVal, w)
+        return w, err
+    }
 }
 
-for _, c := range constraints {
-    c.Encode(node)
+// Returns its argument unchanged.
+func Identity() Mapping {
+    return func(w Word) (Word, error) {
+        return w, nil
+    }
 }
 
-func Add()
+// AVR Mnemonics
+var Mnemonics = []string{
+    "MOV",
+}
 
-op, err := op.Encode(node)
+// Constraints/mappings for each mnemonic.
+//
+// "MOV" accepts two arguments of any type. (It doesn't really, this is just for testing).
+var Mappings = map[string][]Mapping{
+    "MOV": {Identity(), Identity()},
+}
 
-// type check -> map operand -> map instruction
+func Encode(node *ast.Instruction) (Word, error) {
+    // Error phrone, probably panics if entry exists.
+    mappings := Mappings[node.Mnemonic.Text]
 
-New(IsRegister, Between(R0, R15))
+    // Check if instruction constains the correct amount of operands.
+    if len(node.Operands) != len(mappings) {
+        return 0, fmt.Errorf("expected %v operands, received %v instead", len(mappings), len(node.Operands))
+    }
 
-type OperandType uint
+    // Check if each operand can be mapped.
+    for i, operand := range node.Operands {
+
+
+        word, err := mappings[i](operand.Word())
+
+        if err != nil {
+            return word, err
+        }
+
+        
+    }
+
+    return 0, nil
+}
 

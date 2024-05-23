@@ -1,6 +1,10 @@
 package ast
 
-import "avr-asm/token"
+import (
+    . "avr-asm/arch"
+    "avr-asm/token"
+    "strconv"
+)
 
 type Node interface {
     //Token() token.Token
@@ -23,14 +27,24 @@ type Program struct {
 
 type Operand interface {
     Node
+    Word() Word
     operandNode()
 }
 
 type Register token.Token
 
+func (r Register) Word() Word {
+    i, _ := strconv.Atoi(r.Text[1:])
+    return Word(i)
+}
+
 type RegisterPair struct {
     Lower Register
     Upper Register
+}
+
+func (r RegisterPair) Word() Word {
+    return r.Upper.Word()
 }
 
 // Not a fan of this method of constraining types, but Go seems to 
@@ -40,11 +54,4 @@ func (Instruction) statementNode() {}
 
 func (Register)     operandNode() {}
 func (RegisterPair) operandNode() {}
-
-type SizeType byte
-
-const (
-    Byte SizeType = iota
-    Word
-)
 
