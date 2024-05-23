@@ -49,28 +49,52 @@ var Mappings = map[string][]Mapping{
     "MOV": {Identity(), Identity()},
 }
 
+// Opcodes for each mnemonic.
+//
+// Represented as string as can be found in the AVR instruction set manual.
+var Opcodes = map[string]string{
+    "MOV": "0010 11rd dddd rrrr",
+}
+
 func Encode(node *ast.Instruction) (Word, error) {
     // Error phrone, probably panics if entry exists.
     mappings := Mappings[node.Mnemonic.Text]
+    opcode := Opcodes[node.Mnemonic.Text]
 
     // Check if instruction constains the correct amount of operands.
     if len(node.Operands) != len(mappings) {
         return 0, fmt.Errorf("expected %v operands, received %v instead", len(mappings), len(node.Operands))
     }
 
+    var bin Word
+
     // Check if each operand can be mapped.
     for i, operand := range node.Operands {
-
-
         word, err := mappings[i](operand.Word())
-
         if err != nil {
             return word, err
         }
+        bin |= Mask(opcode, 'r', word)
+    }
+    
+    return 0, nil
+}
 
-        
+func Mask(opcode string, symbol rune, word Word) Word {
+    var mask Word
+
+    for i, r := range opcode {
+        if r == ' ' {
+            continue
+        }
+
+        if r == symbol {
+            bit := word & 1
+            mask |= bit << (15 - i)
+            word = word >> 1
+        }
     }
 
-    return 0, nil
+    return mask
 }
 
