@@ -2,8 +2,8 @@ package main
 
 import (
     "avr-asm/lexer"
-    _ "avr-asm/parser"
-    _ "avr-asm/encoding"
+    "avr-asm/parser"
+    "avr-asm/encoding"
     "bufio"
     "fmt"
     "os"
@@ -35,11 +35,19 @@ func main() {
     }
 
     source := strings.Join(lines, "\n")
-    tokens := lexer.Tokenize(source)
 
-    // Print the tokens
-    for _, tok := range tokens {
-        fmt.Println(tok.Type)
+    for _, v := range lexer.Tokenize(source) {
+        fmt.Println(v.Type)
+    }
+
+    l := lexer.New(source)
+    fmt.Println("source:", source)
+    parser := parser.New(l)
+    program := parser.ParseProgram()
+
+    for _, node := range program.Instructions {
+        fmt.Println("nodne", node)
+        fmt.Println(encoding.Encode(&node))
+        //encoding.Encode(&node)
     }
 }
-

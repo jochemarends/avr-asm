@@ -53,7 +53,7 @@ var Mappings = map[string][]Mapping{
 //
 // Represented as string as can be found in the AVR instruction set manual.
 var Opcodes = map[string]string{
-    "MOV": "0010 11rd dddd rrrr",
+    "MOV": "001011rdddddrrrr",
 }
 
 func Encode(node *ast.Instruction) (Word, error) {
@@ -77,18 +77,15 @@ func Encode(node *ast.Instruction) (Word, error) {
         bin |= Mask(opcode, 'r', word)
     }
     
-    return 0, nil
+    return bin, nil
 }
 
 func Mask(opcode string, symbol rune, word Word) Word {
     var mask Word
 
     for i, r := range opcode {
-        if r == ' ' {
-            continue
-        }
-
         if r == symbol {
+            fmt.Println(i)
             bit := word & 1
             mask |= bit << (15 - i)
             word = word >> 1

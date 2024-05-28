@@ -25,6 +25,7 @@ func (p *Parser) ParseProgram() *ast.Program {
     program := &ast.Program{}
     for p.currToken.Type != token.EOF {
         if inst := p.parseInstruction(); inst != nil {
+            fmt.Println(inst)
             program.Instructions = append(program.Instructions, *inst)
         }
     }
@@ -32,8 +33,11 @@ func (p *Parser) ParseProgram() *ast.Program {
 }
 
 func (p *Parser) readToken() {
-    p.currToken = p.l.ReadToken()
+    //p.currToken = p.l.ReadToken()
+    p.currToken = p.nextToken
     p.nextToken = p.l.ReadToken()
+    //fmt.Println("curr", p.currToken)
+    //fmt.Println("next", p.nextToken)
 }
 
 func (p *Parser) parseStatement() ast.Statement {
