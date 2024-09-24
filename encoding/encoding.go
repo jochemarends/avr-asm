@@ -56,7 +56,7 @@ var Opcodes = map[string]string{
     "MOV": "001011rdddddrrrr",
 }
 
-func Encode(node *ast.Instruction) (Word, error) {
+func Encode(node *ast.Instr) (Word, error) {
     // Error phrone, probably panics if entry exists.
     mappings := Mappings[node.Mnemonic.Text]
     opcode := Opcodes[node.Mnemonic.Text]

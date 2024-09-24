@@ -3,11 +3,12 @@ package ast
 import (
     . "avr-asm/arch"
     "avr-asm/token"
+    "fmt"
     "strconv"
 )
 
 type Node interface {
-    //Token() token.Token
+    Token() token.Token
 }
 
 type Statement interface {
@@ -16,10 +17,12 @@ type Statement interface {
 }
 
 type Instruction struct {
-    Statement
     Mnemonic token.Token
     Operands []Operand
 }
+
+func (instr *Instruction) Token() token.Token { return instr.Mnemonic }
+func (instr *Instruction) statementNode() {}
 
 type Program struct {
     Instructions []Instruction
@@ -31,27 +34,33 @@ type Operand interface {
     operandNode()
 }
 
+type Immediate token.Token
+
+func (imm *Immediate) Word() Word { 
+    value, err := strconv.Atoi(imm.Text) 
+
+    if err != nil {
+        panic(fmt.Sprintf("parse error: %v", err))
+    }
+
+    return Word(value)
+}
+
+func (imm *Immediate) Token() token.Token { return token.Token(*imm) }
+func (imm *Immediate) operandNode() {}
+
 type Register token.Token
 
-func (r Register) Word() Word {
-    i, _ := strconv.Atoi(r.Text[1:])
-    return Word(i)
+func (reg *Register) Word() Word {
+    value, err := strconv.Atoi(reg.Text[1:])
+
+    if err != nil {
+        panic(fmt.Sprintf("parse error: %v", err))
+    }
+
+    return Word(value)
 }
 
-type RegisterPair struct {
-    Lower Register
-    Upper Register
-}
-
-func (r RegisterPair) Word() Word {
-    return r.Upper.Word()
-}
-
-// Not a fan of this method of constraining types, but Go seems to 
-// be doing it for their "go/ast" package, so there's probably no
-// better way.
-func (Instruction) statementNode() {}
-
-func (Register)     operandNode() {}
-func (RegisterPair) operandNode() {}
+func (reg *Register) Token() token.Token { return token.Token(*reg) }
+func (reg *Register) operandNode() {}
 

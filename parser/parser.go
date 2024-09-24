@@ -24,20 +24,21 @@ func New(l *lexer.Lexer) *Parser {
 func (p *Parser) ParseProgram() *ast.Program {
     program := &ast.Program{}
     for p.currToken.Type != token.EOF {
-        if inst := p.parseInstruction(); inst != nil {
-            fmt.Println(inst)
-            program.Instructions = append(program.Instructions, *inst)
+        if instr := p.parseInstruction(); instr != nil {
+            program.Instructions = append(program.Instructions, *instr)
         }
     }
     return program
 }
 
 func (p *Parser) readToken() {
-    //p.currToken = p.l.ReadToken()
     p.currToken = p.nextToken
     p.nextToken = p.l.ReadToken()
-    //fmt.Println("curr", p.currToken)
-    //fmt.Println("next", p.nextToken)
+}
+
+func (p *Parser) nextTokenError(t token.Type) {
+    msg := fmt.Sprintf("ERROR: expected %s token, received %s token instead", t, p.nextToken.Type)
+    p.errors = append(p.errors, msg)
 }
 
 func (p *Parser) parseStatement() ast.Statement {
@@ -49,31 +50,67 @@ func (p *Parser) parseStatement() ast.Statement {
     }
 }
 
-func (p *Parser) expectNext(t token.Type) bool {
-    if p.nextToken.Type == t {
-        p.readToken()
-        return true
-    } else {
-        p.nextTokenError(t)
-        return false
-    }
-}
-
-func (p *Parser) nextTokenError(t token.Type) {
-    msg := fmt.Sprintf("ERROR: expected %s token, received %s token instead", t, p.nextToken.Type)
-    p.errors = append(p.errors, msg)
-}
-
 func (p *Parser) parseInstruction() *ast.Instruction {
-    inst := &ast.Instruction{Mnemonic: p.currToken}
+    instr := &ast.Instruction{Mnemonic: p.currToken}
     p.readToken()
-    inst.Operands = p.parseOperands()
-    return inst
+    instr.Operands = p.parseOperands()
+    return instr
 }
 
-func (p *Parser) parseOperands() []ast.Operand {
-    operands := []ast.Operand{}
+{ 
+    Mnemonic: "ADD",
+    Encoding: "0000 0001 dddd rrrr",
+    Operands: [Register.Between(16, 31), Register.Between(16, 31)]
+}
 
+{ 
+    Mnemonic: "ADD",
+    Encoding: "0000 0001 dddd rrrr",
+    Operands: [Register('d'), Register('r')]
+}
+
+{ 
+    Mnemonic: "ORI",
+    Encoding: "0110 KKKK dddd KKKK",
+    Operands: [Register('d').Between(16, 23), Immediate('K').Bits(8)]
+}
+
+type OperandContraint func(int) int
+
+Parse("ORI R16, 5")
+
+func (p *Parser) parseOperands() []*ast.Operand {
+    operands := []*ast.Operand{}
+
+    p.readToken()
+
+    for {
+        if p.currToken.Type == token.EOL {
+            return operands
+        }
+
+        if op := p.parseOperand(); op != nil {
+            operands = append(operands, &op)
+        } else {
+            return nil
+        }
+
+        if token.
+
+        break
+    }
+
+    Between(0, 16)
+
+
+    for p.nextToken.Type == token.Comma {
+        
+    }
+
+    if p.currToken.Type != token.Register {
+        return nil
+    }
+    
     if p.currToken.Type == token.Register {
         if p.nextToken.Type == token.Colon {
             operands = append(operands, p.parseRegisterPair())
@@ -85,14 +122,11 @@ func (p *Parser) parseOperands() []ast.Operand {
     return operands
 }
 
-func (p *Parser) parseRegisterPair() *ast.RegisterPair {
-    pair := &ast.RegisterPair{Lower: ast.Register(p.currToken)}
-
-    if !p.expectNext(token.Register) {
+func (p *Parser) parseOperand() ast.Operand {
+    if p.currToken.Type != token.Register {
         return nil
     }
-
-    pair.Upper = ast.Register(p.currToken)
-    return pair
+    reg := ast.Register(p.currToken)
+    return &reg
 }
 
