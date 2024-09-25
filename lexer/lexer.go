@@ -1,132 +1,159 @@
 package lexer
 
 import (
-    "avr-asm/token"
-    "slices"
+    "io"
+    "unicode"
+    "bufio"
+    "avrasm/token"
 )
 
+type ErrorKind string
+
+const (
+    EndOfInput          ErrorKind = "reached end of input"
+    UnexpectedCharacter ErrorKind = "encountered an unexpected character"
+)
+
+type Error struct {
+    Kind ErrorKind 
+    Line uint
+}
+
 type Lexer struct {
-    input        string
-    readPosition int
+    reader  *bufio.Reader
+    buffer  []rune
+    line    uint
+    eof     bool
 }
 
-func New(input string) *Lexer {
-    return &Lexer{input: input}
+func isLetter(r rune) bool {
+    return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
 }
 
-func (l *Lexer) peekChar() byte {
-    if l.readPosition < len(l.input) {
-        return l.input[l.readPosition]
+func isDigit(r rune) bool {
+    return r >= '0' && r <= '9'
+}
+
+func New(reader io.Reader) *Lexer {
+    return &Lexer{reader: bufio.NewReader(reader)}
+}
+
+func (lexer *Lexer) peekRunes(n int) *rune {
+    if n == 0 {
+        panic("cannot peek zero character ahead")
     }
-    return 0
-}
 
-func (l *Lexer) readChar() byte {
-    ch := l.peekChar()
+    for len(lexer.buffer) < n {
+        r, _, err := lexer.reader.ReadRune()
 
-    if ch != 0 {
-        l.readPosition++
-    }
-
-    return ch
-}
-
-func (l *Lexer) unget() {
-    l.readPosition = max(l.readPosition - 1, 0)
-}
-
-// Does not skip the '\n' character as it has its own token type.
-func (l *Lexer) skipSpace() {
-    spaces := []byte(" \t\v\f\r")
-
-    for {
-        if ch := l.peekChar(); slices.Contains(spaces, ch) {
-            l.readChar()
+        if err == nil {
+            lexer.buffer = append(lexer.buffer, r)
         } else {
-            break
+            return nil
         }
     }
+
+    return &lexer.buffer[n - 1]
 }
 
-func (l *Lexer) ReadToken() token.Token {
-    var tok token.Token
-    l.skipSpace()
+func (lexer *Lexer) peekRune() *rune {
+    return lexer.peekRunes(1)
+}
 
-    switch ch := l.readChar(); ch {
+func (lexer *Lexer) readRune() *rune {
+    r := lexer.peekRune()
+
+    if r != nil {
+        if *r == '\n' {
+            lexer.line++
+        }
+        tail := lexer.buffer[1:]
+        lexer.buffer = tail
+    }
+
+    return r
+}
+
+func (lexer *Lexer) putback(r rune) {
+    // prepend
+    lexer.buffer = append(lexer.buffer, r)
+
+    if buflen := len(lexer.buffer); buflen > 0 {
+        copy(lexer.buffer[1:], lexer.buffer)
+        lexer.buffer[0] = r
+    }
+}
+
+func (lexer *Lexer) readWhile(pred func(rune) bool) (text string) {
+    for {
+        r := lexer.peekRune()
+
+        if r != nil {
+            if pred(*r) {
+                lexer.readRune()
+                text += string(*r)
+                continue
+            }
+        }
+        break
+    }
+
+    return
+}
+
+func (lexer *Lexer) Scan() (*token.Token, *Error) {
+    r := lexer.readRune()
+
+    if r == nil {
+        // only emit one EOF token
+        if !lexer.eof {
+            lexer.eof = true
+            return lexer.newToken(token.EOF, ""), nil
+        }
+        return nil, lexer.newError(EndOfInput)
+    }
+
+    switch *r {
     case ',':
-        tok = token.Token{Type: token.Comma, Text: string(ch)}
-    case ':':
-        tok = token.Token{Type: token.Colon, Text: string(ch)}
-    case ' ', '\t', '\f', '\r':
-        tok = token.Token{Type: token.Space, Text: string(ch)}
-    case '\n':
-        tok = token.Token{Type: token.EOL, Text: string(ch)}
-    case 0:
-        tok = token.Token{Type: token.EOF}
+        return lexer.newToken(token.Comma, string(*r)), nil
     default:
-        if isLetter(ch) {
-            l.unget()
-            tok.Type = token.Symbol
-            tok.Text = l.readSymbol()
-            
-            if token.IsMnemonic(tok.Text) {
-                tok.Type = token.Mnemonic
-            }
-
-            if token.IsRegister(tok.Text) {
-                tok.Type = token.Register
-            }
-
-        } else {
-            tok.Type = token.Illegal
-            tok.Text = string(ch)
+        if unicode.IsSpace(*r) {
+            return lexer.Scan()
         }
+
+        lexer.putback(*r)
+        return lexer.scanName()
     }
 
-    return tok
 }
 
-func (l *Lexer) readSymbol() string {
-    startPosition := l.readPosition
+func (lexer *Lexer) scanName() (*token.Token, *Error) {
+    head := lexer.readRune()
 
-    // First character can't be a number.
-    if ch := l.peekChar(); isLetter(ch) {
-        l.readChar()
-        for {
-            if ch := l.peekChar(); isLetter(ch) || isDigit(ch) {
-                l.readChar()
-            } else {
-                break
-            }
-        }
+    if head != nil && isLetter(*head) {
+        tail := lexer.readWhile(func(r rune) bool {
+            return isLetter(r) || isDigit(r)
+        })
+
+        name := string(*head) + tail
+        return lexer.newToken(token.Mnemonic, name), nil
     }
 
-    return l.input[startPosition:l.readPosition]
+    return nil, lexer.newError(UnexpectedCharacter)
 }
 
-func isLetter(ch byte) bool {
-    isLower := ch >= 'a' && ch <= 'z'
-    isUpper := ch >= 'A' && ch <= 'Z'
-    return isLower || isUpper || ch == '_'
-}
-
-func isDigit(ch byte) bool {
-    return ch >= '0' && ch <= '9'
-}
-
-func Tokenize(input string) []token.Token {
-    var tokens []token.Token
-
-    l := New(input)
-    for {
-        tok := l.ReadToken();
-        tokens = append(tokens, tok)
-
-        if tok.Type == token.EOF {
-            break
-        }
+func (lexer *Lexer) newToken(kind token.Kind, lexeme string) *token.Token {
+    return &token.Token{
+        Kind:   kind,
+        Lexeme: lexeme,
+        Line:   lexer.line,
     }
+}
 
-    return tokens
+func (lexer *Lexer) newError(kind ErrorKind) *Error {
+    return &Error{
+        Kind: kind,
+        Line: lexer.line,
+    }
 }
 
