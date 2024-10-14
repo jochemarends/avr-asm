@@ -1,9 +1,10 @@
 package lexer
 
 import (
-    "io"
-    "unicode"
     "bufio"
+    "io"
+    "regexp"
+    "unicode"
     "avrasm/token"
 )
 
@@ -32,6 +33,12 @@ func isLetter(r rune) bool {
 
 func isDigit(r rune) bool {
     return r >= '0' && r <= '9'
+}
+
+func isRegister(s string) bool {
+    pattern := `(?i)^r(3[01]|[01]?[0-9])$`
+	r := regexp.MustCompile(pattern)
+	return r.MatchString(s)
 }
 
 func New(reader io.Reader) *Lexer {
@@ -136,7 +143,13 @@ func (lexer *Lexer) scanName() (*token.Token, *Error) {
         })
 
         name := string(*head) + tail
-        return lexer.newToken(token.Mnemonic, name), nil
+        kind := token.Mnemonic
+
+        if isRegister(name) {
+            kind = token.Register
+        }
+
+        return lexer.newToken(kind, name), nil
     }
 
     return nil, lexer.newError(UnexpectedCharacter)
