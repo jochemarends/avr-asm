@@ -6,6 +6,7 @@ const (
     Mnemonic Kind = "mnemonic"
     Register Kind = "register"
     Comma    Kind = ","
+    Newline  Kind = "\n"
     EOF      Kind = "eof"
 )
 
