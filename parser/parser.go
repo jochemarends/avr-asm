@@ -5,7 +5,12 @@ import (
     "iter"
     "slices"
     "avrasm/ast"
+    "avrasm/errors"
     "avrasm/token"
+)
+
+const (
+    InvalidArgumentType errors.What = "invalid argument type"
 )
 
 type Parser struct {
@@ -15,6 +20,18 @@ type Parser struct {
 
 func New(tokens iter.Seq[token.Token]) *Parser {
     return &Parser{tokens: slices.Collect(tokens)}
+}
+
+func (p *Parser) Parse() (program []*ast.Instruction, errors []error) {
+    for {
+        instr, err := p.parseInstr()
+        
+        if err != nil {
+            errors = append(errors, err)
+        } else {
+            program = append(program, instr)
+        }
+    }
 }
 
 func (parser *Parser) peekToken() (tok token.Token, err error) {
@@ -125,6 +142,19 @@ func (parser *Parser) parseOperands() (ops []ast.Operand, err error) {
     return
 }
 
+func (parser *Parser) parseOperand() (op ast.Operand, err error) {
+    tok, err := parser.peekToken()
+    
+    if err == nil {
+        if tok.Kind == token.Register {
+            return parser.parseRegister()
+        }
+        return parser.parseImmediate()
+    }
+
+    return
+}
+
 func (parser *Parser) parseRegister() (reg ast.Register, err error) {
     tok, err := parser.peekToken()
 
@@ -134,6 +164,16 @@ func (parser *Parser) parseRegister() (reg ast.Register, err error) {
         err = fmt.Errorf("expected a token of kind 'register', received '%v' instead", tok.Kind)
     } else {
         reg = ast.Register(tok)
+    }
+
+    return
+}
+
+func (parser *Parser) parseImmediate() (imm ast.Immediate, err error) {
+    tok, err := parser.peekToken()
+
+    if err == nil && tok.Kind == token.Number {
+        imm = ast.Immediate(tok)
     }
 
     return

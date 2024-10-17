@@ -13,3 +13,5 @@ type Operand interface {}
 
 type Register token.Token
 
+type Immediate token.Token
+

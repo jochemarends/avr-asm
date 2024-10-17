@@ -5,20 +5,14 @@ import (
     "io"
     "regexp"
     "unicode"
+    "avrasm/errors"
     "avrasm/token"
 )
 
-type ErrorKind string
-
 const (
-    EndOfInput          ErrorKind = "reached end of input"
-    UnexpectedCharacter ErrorKind = "encountered an unexpected character"
+    EndOfInput          errors.What = "end of input"
+    UnexpectedCharacter errors.What = "unexpected character"
 )
-
-type Error struct {
-    Kind ErrorKind 
-    Line uint
-}
 
 type Lexer struct {
     reader  *bufio.Reader
@@ -36,8 +30,7 @@ func isDigit(r rune) bool {
 }
 
 func isRegister(s string) bool {
-    pattern := `(?i)^r(3[01]|[01]?[0-9])$`
-	r := regexp.MustCompile(pattern)
+    r := regexp.MustCompile("(?i)^r(3[0-1]|[01]?[0-9]|2[0-9])$")
 	return r.MatchString(s)
 }
 
@@ -108,7 +101,7 @@ func (lexer *Lexer) readWhile(pred func(rune) bool) (text string) {
     return
 }
 
-func (lexer *Lexer) Scan() (*token.Token, *Error) {
+func (lexer *Lexer) Scan() (*token.Token, *errors.Error) {
     r := lexer.readRune()
 
     if r == nil {
@@ -129,12 +122,15 @@ func (lexer *Lexer) Scan() (*token.Token, *Error) {
         }
 
         lexer.putback(*r)
-        return lexer.scanName()
+        if isLetter(*r) {
+            return lexer.scanName()
+        } else {
+            return lexer.scanNumber()
+        }
     }
-
 }
 
-func (lexer *Lexer) scanName() (*token.Token, *Error) {
+func (lexer *Lexer) scanName() (*token.Token, *errors.Error) {
     head := lexer.readRune()
 
     if head != nil && isLetter(*head) {
@@ -155,6 +151,16 @@ func (lexer *Lexer) scanName() (*token.Token, *Error) {
     return nil, lexer.newError(UnexpectedCharacter)
 }
 
+func (lexer *Lexer) scanNumber() (*token.Token, *errors.Error) {
+    text := lexer.readWhile(isDigit)
+    
+    if len(text) == 0 {
+        return nil, lexer.newError(EndOfInput)
+    } else {
+        return lexer.newToken(token.Number, text), nil
+    }
+}
+
 func (lexer *Lexer) newToken(kind token.Kind, lexeme string) *token.Token {
     return &token.Token{
         Kind:   kind,
@@ -163,9 +169,9 @@ func (lexer *Lexer) newToken(kind token.Kind, lexeme string) *token.Token {
     }
 }
 
-func (lexer *Lexer) newError(kind ErrorKind) *Error {
-    return &Error{
-        Kind: kind,
+func (lexer *Lexer) newError(kind errors.What) *errors.Error {
+    return &errors.Error{
+        What: kind,
         Line: lexer.line,
     }
 }
